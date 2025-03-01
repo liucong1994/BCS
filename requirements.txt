@@ -3,3 +3,4 @@ joblib
 shap
 numpy
 pandas
+xgboost
