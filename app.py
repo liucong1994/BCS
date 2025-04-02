@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import streamlit.components.v1 as components
 import os
-
+shap.initjs()
 # 配置页面
 st.set_page_config(
     page_title="BCS出血风险预测工具",
@@ -110,13 +110,7 @@ if predict_button:
             selected_shap = shap_values[0]
 
         # 生成 Force Plot（非matplotlib模式）
-        force_plot = shap.force_plot(
-            base_value=base_value,
-            shap_values=selected_shap,
-            features=input_df.iloc[0],
-            feature_names=feature_names,
-            matplotlib=False
-        )
+        force_plot = shap.force_plot(explainer.expected_value, shap_values[0,:], x[0,:],matplotlib=True)
         st_shap(force_plot, height=500)
 
     # 指标说明
