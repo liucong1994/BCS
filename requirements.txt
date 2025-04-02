@@ -1,7 +1,7 @@
-streamlit>=1.23.0
-shap>=0.44.0
-xgboost==1.7.6
-scikit-learn==1.2.0
-pandas>=1.5.0
-matplotlib>=3.5.0
-joblib>=1.2.0
+streamlit
+shap
+xgboost
+scikit-learn
+pandas
+matplotlib
+joblib
