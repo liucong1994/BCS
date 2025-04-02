@@ -4,9 +4,10 @@ import joblib
 import shap
 import numpy as np
 import pandas as pd
-import streamlit.components.v1 as components
-import os
 import matplotlib.pyplot as plt
+import os
+import sys
+import xgboost
 
 # 配置页面
 st.set_page_config(
@@ -17,38 +18,47 @@ st.set_page_config(
 
 @st.cache_resource
 def load_assets():
-    base_path = os.path.dirname(__file__)
-    model_path = os.path.join(base_path, "assets", "bcs_hemorrhage_xgb_model.pkl")
-    feature_names_path = os.path.join(base_path, "assets", "feature_names2.pkl")
+    try:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        assets_dir = os.path.join(base_path, "assets")
+        
+        # 检查资源目录
+        if not os.path.exists(assets_dir):
+            raise FileNotFoundError(f"资源目录缺失: {assets_dir}")
+            
+        model_path = os.path.join(assets_dir, "bcs_hemorrhage_xgb_model.pkl")
+        feature_names_path = os.path.join(assets_dir, "feature_names2.pkl")
 
-    model = joblib.load(model_path)
-    feature_names = joblib.load(feature_names_path)
-    explainer = shap.TreeExplainer(model)
-    return model, explainer, feature_names
+        # 加载模型
+        model = joblib.load(model_path)
+        
+        # 验证模型类型
+        if not isinstance(model, xgboost.XGBClassifier):
+            raise TypeError("模型类型错误：必须为XGBoost分类器")
+        if model.n_classes_ != 2:
+            raise ValueError("当前仅支持二分类模型")
+            
+        # 初始化SHAP解释器
+        explainer = shap.TreeExplainer(
+            model=model,
+            model_output="probability",
+            feature_perturbation="tree_path_dependent"
+        )
+        
+        # 加载特征名称
+        feature_names = joblib.load(feature_names_path)
+        
+        return model, explainer, feature_names
+        
+    except Exception as e:
+        st.error(f"系统初始化失败: {str(e)}")
+        sys.exit(1)
 
 model, explainer, feature_names = load_assets()
 
-def st_shap(plot, height=500):
-    # 使用CDN加载SHAP的JS库
-    shap_html = f"""
-    <html>
-    <head>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/shap/0.41.0/shap.min.js"></script>
-    </head>
-    <body>
-    {plot.html()}
-    </body>
-    </html>
-    """
-    components.html(shap_html, height=height)
-
-# ... [其余代码保持不变] ...
-
-
 st.title("布加综合征上消化道出血风险预测")
 st.markdown("""**使用说明**:  
-输入患者的基线指标，点击"预测"按钮获取6个月内出血风险及个体化建议。  
-模型基于随机森林算法构建，并通过SHAP值解释预测依据。""")
+输入患者的基线指标，点击"预测"按钮获取6个月内出血风险及个体化建议。""")
 
 with st.sidebar:
     st.header("患者指标输入")
@@ -68,66 +78,78 @@ with st.sidebar:
 if predict_button:
     input_df = pd.DataFrame([input_values], columns=feature_names)
 
-    # 预测概率，保留小数点后两位
-    prob = model.predict_proba(input_df)[0][1]
-    risk_percent = round(prob * 100, 2)
+    try:
+        # 预测概率
+        prob = model.predict_proba(input_df)[0][1]
+        risk_percent = round(prob * 100, 2)
 
-    # 风险分级
-    if risk_percent >= 30:
-        risk_level = "高危"
-        advice = "立即住院监测，优先安排内镜检查，考虑预防性TIPS"
-        color = "#FF4B4B"
-    elif risk_percent >= 10:
-        risk_level = "中危"
-        advice = "每2周门诊随访，启动非选择性β受体阻滞剂治疗"
-        color = "#FFA500"
-    else:
-        risk_level = "低危"
-        advice = "每3个月常规随访，维持抗凝治疗"
-        color = "#2E86C1"
+        # 风险分级
+        if risk_percent >= 30:
+            risk_level = "高危"
+            advice = "立即住院监测，优先安排内镜检查，考虑预防性TIPS"
+            color = "#FF4B4B"
+        elif risk_percent >= 10:
+            risk_level = "中危"
+            advice = "每2周门诊随访，启动非选择性β受体阻滞剂治疗"
+            color = "#FFA500"
+        else:
+            risk_level = "低危"
+            advice = "每3个月常规随访，维持抗凝治疗"
+            color = "#2E86C1"
 
-    # 显示预测结果（上部分）
-    st.subheader("预测结果")
-    st.markdown(f"""
-    <div style="border-left: 5px solid {color}; padding: 10px;">
-        <h4 style="color: {color};">{risk_level}风险</h4>
-        <p>6个月内出血概率: <b>{risk_percent:.2f}%</b></p>
-        <p>临床建议: {advice}</p>
-    </div>
-    """, unsafe_allow_html=True)
+        # 显示预测结果
+        st.subheader("预测结果")
+        st.markdown(f"""
+        <div style="border-left: 5px solid {color}; padding: 10px;">
+            <h4 style="color: {color};">{risk_level}风险</h4>
+            <p>6个月内出血概率: <b>{risk_percent:.2f}%</b></p>
+            <p>临床建议: {advice}</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-    # 显示预测解释（下部分）
-st.subheader("预测解释")
-with st.spinner("生成SHAP解释..."):
-    # 计算 SHAP 值
-    shap_values = explainer.shap_values(input_df)
-    predicted_class = 1 if prob > 0.5 else 0
+        # SHAP解释部分
+        st.subheader("风险解释")
+        with st.spinner("生成特征贡献度分析..."):
+            # 计算SHAP值
+            shap_values = explainer.shap_values(input_df)
+            
+            # 调试输出（部署后可查看日志）
+            st.session_state['debug'] = {
+                'expected_value': explainer.expected_value,
+                'shap_values_shape': np.array(shap_values).shape,
+                'model_type': str(type(model))
+            }
+            
+            # 可视化配置
+            plt.figure(figsize=(10, 4))
+            
+            # 二分类SHAP可视化适配
+            if isinstance(explainer.expected_value, np.ndarray):
+                base_value = explainer.expected_value[1]  # 获取正类的基准值
+                sv = shap_values[1][0] if isinstance(shap_values, list) else shap_values[0]
+            else:
+                base_value = explainer.expected_value
+                sv = shap_values[0]
 
-    # 生成 SHAP 力图
-    plt.figure(figsize=(10, 4))
-    shap.force_plot(
-        explainer.expected_value[predicted_class],
-        shap_values[predicted_class][0],
-        input_df.iloc[0],
-        matplotlib=True,
-        show=False
-    )
-    
-    # 保存并显示 SHAP 图
-    plt.tight_layout()
-    plt.savefig("shap_force_plot.png", bbox_inches='tight', dpi=120)
-    plt.close()
-    st.image("shap_force_plot.png")
+            shap.force_plot(
+                base_value,
+                sv,
+                input_df.iloc[0],
+                matplotlib=True,
+                show=False,
+                text_rotation=15,
+                plot_cmap=["#FF4B4B", "#2E86C1"]  # 自定义颜色
+            )
+            
+            plt.title("特征贡献度分析", fontsize=14)
+            plt.tight_layout()
+            plt.savefig("shap_plot.png", dpi=120, bbox_inches='tight')
+            plt.close()
+            
+            st.image("shap_plot.png")
 
-    # 指标说明
-    st.markdown("---")
-    st.subheader("指标临床意义")
-    st.markdown("""
-    - **NLR**: 反映全身炎症状态  
-    - **血小板/脾脏比值**: 门静脉高压严重程度指标  
-    - **门静脉宽度**: 门静脉高压严重程度指标  
-    - **IV型胶原**: 肝纤维化标志物  
-    """)
+    except Exception as e:
+        st.error(f"预测过程中发生错误: {str(e)}")
 
 # 页脚
 st.markdown("---")
