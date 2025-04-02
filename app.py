@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import streamlit.components.v1 as components
 import os
+import matplotlib.pyplot as plt
 
 # 配置页面
 st.set_page_config(
@@ -99,11 +100,11 @@ if predict_button:
 st.subheader("预测解释")
 with st.spinner("生成SHAP解释..."):
     # 计算 SHAP 值
-    shap_values = explainer.shap_values(input_df)  # 使用全局的explainer变量
-    predicted_class = 1 if prob > 0.5 else 0      # 添加预测类别判断
+    shap_values = explainer.shap_values(input_df)
+    predicted_class = 1 if prob > 0.5 else 0
 
     # 生成 SHAP 力图
-    plt.figure()
+    plt.figure(figsize=(10, 4))
     shap.force_plot(
         explainer.expected_value[predicted_class],
         shap_values[predicted_class][0],
@@ -114,7 +115,7 @@ with st.spinner("生成SHAP解释..."):
     
     # 保存并显示 SHAP 图
     plt.tight_layout()
-    plt.savefig("shap_force_plot.png", bbox_inches='tight', dpi=1200)
+    plt.savefig("shap_force_plot.png", bbox_inches='tight', dpi=120)
     plt.close()
     st.image("shap_force_plot.png")
 
