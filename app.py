@@ -14,12 +14,9 @@ st.set_page_config(
     layout="wide"
 )
 
-
 @st.cache_resource
 def load_assets():
-    # 获取当前脚本所在的目录
     base_path = os.path.dirname(__file__)
-    # 构造相对路径
     model_path = os.path.join(base_path, "assets", "bcs_hemorrhage_xgb_model.pkl")
     feature_names_path = os.path.join(base_path, "assets", "feature_names2.pkl")
 
@@ -28,13 +25,23 @@ def load_assets():
     explainer = shap.TreeExplainer(model)
     return model, explainer, feature_names
 
-
 model, explainer, feature_names = load_assets()
 
-
 def st_shap(plot, height=500):
-    shap_html = f"<head>{shap.getjs()}</head><body>{plot.html()}</body>"
+    # 使用CDN加载SHAP的JS库
+    shap_html = f"""
+    <html>
+    <head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shap/0.41.0/shap.min.js"></script>
+    </head>
+    <body>
+    {plot.html()}
+    </body>
+    </html>
+    """
     components.html(shap_html, height=height)
+
+# ... [其余代码保持不变] ...
 
 
 st.title("布加综合征上消化道出血风险预测")
