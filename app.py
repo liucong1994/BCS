@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import streamlit.components.v1 as components
 import os
-shap.initjs()
+
 # 配置页面
 st.set_page_config(
     page_title="BCS出血风险预测工具",
