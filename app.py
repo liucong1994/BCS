@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import streamlit.components.v1 as components
 import os
-shap.initjs()
+
 # 配置页面
 st.set_page_config(
     page_title="BCS出血风险预测工具",
@@ -98,20 +98,21 @@ if predict_button:
     # 显示预测解释（下部分）
     st.subheader("预测解释")
     with st.spinner("生成SHAP解释..."):
-        # 计算SHAP值
-        shap_values = explainer.shap_values(input_df)
+        # 计算 SHAP 值
+    explainer = shap.TreeExplainer(model)
+    shap_values = explainer.shap_values(pd.DataFrame([feature_values], columns=feature_ranges.keys()))
 
-        # 处理二分类输出：使用正类（索引1）的SHAP值
-        if isinstance(shap_values, list):
-            base_value = explainer.expected_value[1]
-            selected_shap = shap_values[1][0]  # 第一个样本的正类SHAP值
-        else:
-            base_value = explainer.expected_value
-            selected_shap = shap_values[0]
-
-        # 生成 Force Plot（非matplotlib模式）
-        force_plot = shap.force_plot(explainer.expected_value, shap_values[0,:], x[0,:],matplotlib=True)
-        st_shap(force_plot, height=500)
+    # 生成 SHAP 力图
+    class_index = predicted_class  # 当前预测类别
+    shap_fig = shap.force_plot(
+        explainer.expected_value[class_index],
+        shap_values[:,:,class_index],
+        pd.DataFrame([feature_values], columns=feature_ranges.keys()),
+        matplotlib=True,
+    )
+    # 保存并显示 SHAP 图
+    plt.savefig("shap_force_plot.png", bbox_inches='tight', dpi=1200)
+    st.image("shap_force_plot.png")
 
     # 指标说明
     st.markdown("---")
