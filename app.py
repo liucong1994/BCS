@@ -96,22 +96,26 @@ if predict_button:
     """, unsafe_allow_html=True)
 
     # 显示预测解释（下部分）
-    st.subheader("预测解释")
-    with st.spinner("生成SHAP解释..."):
-        # 计算 SHAP 值
-    explainer = shap.TreeExplainer(model)
-    shap_values = explainer.shap_values(pd.DataFrame([feature_values], columns=feature_ranges.keys()))
+st.subheader("预测解释")
+with st.spinner("生成SHAP解释..."):
+    # 计算 SHAP 值
+    shap_values = explainer.shap_values(input_df)  # 使用全局的explainer变量
+    predicted_class = 1 if prob > 0.5 else 0      # 添加预测类别判断
 
     # 生成 SHAP 力图
-    class_index = predicted_class  # 当前预测类别
-    shap_fig = shap.force_plot(
-        explainer.expected_value[class_index],
-        shap_values[:,:,class_index],
-        pd.DataFrame([feature_values], columns=feature_ranges.keys()),
+    plt.figure()
+    shap.force_plot(
+        explainer.expected_value[predicted_class],
+        shap_values[predicted_class][0],
+        input_df.iloc[0],
         matplotlib=True,
+        show=False
     )
+    
     # 保存并显示 SHAP 图
+    plt.tight_layout()
     plt.savefig("shap_force_plot.png", bbox_inches='tight', dpi=1200)
+    plt.close()
     st.image("shap_force_plot.png")
 
     # 指标说明
