@@ -2,15 +2,9 @@
 import streamlit as st
 import joblib
 import shap
-import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import streamlit.components.v1 as components
 import os
-
-# 配置Matplotlib中文字体
-plt.rcParams['font.sans-serif'] = ['SimHei']  # Windows系统黑体
-plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
 
 # 配置页面
 st.set_page_config(
@@ -32,25 +26,31 @@ def load_assets():
 
 model, explainer, feature_names = load_assets()
 
-def st_shap(plot, height=None):
-    """在Streamlit中显示SHAP plot的HTML组件"""
+def st_shap(shap_values, features, feature_names):
+    """适用于Streamlit的SHAP可视化组件"""
     shap_html = f"""
-    <html>
     <head>
     {shap.getjs()}
     </head>
     <body>
-    {shap.initjs()}
-    {plot.html()}
+    <div id="shap-plot"></div>
+    <script>
+    {shap.getjs()}
+    shap.forcePlot(
+        {explainer.expected_value},
+        {shap_values.tolist()},
+        {features.tolist()},
+        featureNames = {feature_names},
+        mainDivId = 'shap-plot'
+    )
+    </script>
     </body>
-    </html>
     """
-    components.html(shap_html, height=height)
+    components.html(shap_html, height=300)
 
 st.title("布加综合征上消化道出血风险预测")
 st.markdown("""**使用说明**:  
-输入患者的基线指标，点击"预测"按钮获取6个月内出血风险及个体化建议。  
-模型基于随机森林算法构建，并通过SHAP值解释预测依据。""")
+输入患者的基线指标，点击"预测"按钮获取6个月内出血风险及个体化建议。""")
 
 with st.sidebar:
     st.header("患者指标输入")
@@ -69,7 +69,7 @@ with st.sidebar:
 
 if predict_button:
     input_df = pd.DataFrame([input_values], columns=feature_names)
-
+    
     # 预测概率
     prob = model.predict_proba(input_df)[0][1]
     risk_percent = round(prob * 100, 2)
@@ -101,28 +101,12 @@ if predict_button:
     # SHAP解释
     st.subheader("预测解释")
     with st.spinner("生成SHAP解释..."):
-        # 计算SHAP值
         shap_values = explainer.shap_values(input_df)
-        
-        # 生成HTML格式的force plot
-        force_plot = shap.force_plot(
-            base_value=explainer.expected_value,
+        st_shap(
             shap_values=shap_values[0],
-            features=input_df.iloc[0, :],
-            feature_names=feature_names,
-            show=False
+            features=input_df.values[0],
+            feature_names=feature_names
         )
-        st_shap(force_plot, height=300)
-
-    # 指标说明
-    st.markdown("---")
-    st.subheader("指标临床意义")
-    st.markdown("""
-    - **NLR**: 反映全身炎症状态  
-    - **血小板/脾脏比值**: 门静脉高压严重程度指标  
-    - **门静脉宽度**: 门静脉高压严重程度指标  
-    - **IV型胶原**: 肝纤维化标志物  
-    """)
 
 # 页脚
 st.markdown("---")
