@@ -24,27 +24,66 @@ def load_assets():
     explainer = shap.TreeExplainer(model)
     return model, explainer, feature_names
 
+# -*- coding: utf-8 -*-
+import streamlit as st
+import joblib
+import shap
+import pandas as pd
+import streamlit.components.v1 as components
+import os
+
+# 配置页面
+st.set_page_config(
+    page_title="BCS出血风险预测工具",
+    page_icon=":hospital:",
+    layout="wide"
+)
+
+@st.cache_resource
+def load_assets():
+    base_path = os.path.dirname(__file__)
+    model_path = os.path.join(base_path, "assets", "bcs_hemorrhage_xgb_model.pkl")
+    feature_names_path = os.path.join(base_path, "assets", "feature_names2.pkl")
+
+    model = joblib.load(model_path)
+    feature_names = joblib.load(feature_names_path)
+    explainer = shap.TreeExplainer(model)
+    return model, explainer, feature_names
+
 model, explainer, feature_names = load_assets()
 
 def st_shap(shap_values, features, feature_names):
-    """适用于Streamlit的SHAP可视化组件"""
+    """修复后的SHAP可视化组件"""
     shap_html = f"""
+    <html>
     <head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
     {shap.getjs()}
     </head>
     <body>
     <div id="shap-plot"></div>
-    <script>
-    {shap.getjs()}
-    shap.forcePlot(
-        {explainer.expected_value},
-        {shap_values.tolist()},
-        {features.tolist()},
-        featureNames = {feature_names},
-        mainDivId = 'shap-plot'
-    )
+    <script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function() {{
+        const shap_values = {shap_values.tolist()};
+        const features = {features.tolist()};
+        
+        if (typeof shap !== 'undefined') {{
+            shap.forcePlot(
+                {explainer.expected_value},
+                shap_values,
+                features,
+                {{
+                    featureNames: {feature_names},
+                    mainDivId: 'shap-plot'
+                }}
+            );
+        }} else {{
+            console.error('SHAP library not loaded');
+        }}
+    }});
     </script>
     </body>
+    </html>
     """
     components.html(shap_html, height=300)
 
