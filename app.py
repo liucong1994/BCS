@@ -34,7 +34,17 @@ model, explainer, feature_names = load_assets()
 
 def st_shap(plot, height=None):
     """在Streamlit中显示SHAP plot的HTML组件"""
-    shap_html = f"<head>{shap.getjs()}</head><body>{plot.html()}</body>"
+    shap_html = f"""
+    <html>
+    <head>
+    {shap.getjs()}
+    </head>
+    <body>
+    {shap.initjs()}
+    {plot.html()}
+    </body>
+    </html>
+    """
     components.html(shap_html, height=height)
 
 st.title("布加综合征上消化道出血风险预测")
