@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+import matplotlib
+matplotlib.use('Agg')  # 必须放在所有导入之前
+
 import streamlit as st
 import joblib
 import shap
@@ -8,9 +11,9 @@ import matplotlib.pyplot as plt
 import streamlit.components.v1 as components
 import os
 
-# 配置Matplotlib中文字体（必须放在其他matplotlib操作之前）
-plt.rcParams['font.sans-serif'] = ['SimHei']  # Windows系统黑体
-plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+# 配置Matplotlib中文字体
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 
 # 配置页面
 st.set_page_config(
@@ -21,6 +24,7 @@ st.set_page_config(
 
 @st.cache_resource
 def load_assets():
+    """加载模型和特征名称"""
     base_path = os.path.dirname(__file__)
     model_path = os.path.join(base_path, "assets", "bcs_hemorrhage_xgb_model.pkl")
     feature_names_path = os.path.join(base_path, "assets", "feature_names2.pkl")
@@ -32,9 +36,27 @@ def load_assets():
 
 model, explainer, feature_names = load_assets()
 
-def st_shap(plot, height=500):
-    shap_html = f"<head>{shap.getjs()}</head><body>{plot.html()}</body>"
-    components.html(shap_html, height=height)
+def render_shap_plot(input_df):
+    """渲染SHAP解释图"""
+    plt.figure(figsize=(10, 4), dpi=150)
+    
+    # 计算SHAP值
+    shap_values = explainer.shap_values(input_df)
+    
+    # 生成force plot
+    shap.force_plot(
+        base_value=explainer.expected_value,
+        shap_values=shap_values[0],
+        features=input_df.iloc[0, :],
+        feature_names=feature_names,
+        matplotlib=True,
+        show=False
+    )
+    
+    # 获取当前figure并关闭防止内存泄漏
+    fig = plt.gcf()
+    plt.close()
+    return fig
 
 st.title("布加综合征上消化道出血风险预测")
 st.markdown("""**使用说明**:  
@@ -87,34 +109,15 @@ if predict_button:
     </div>
     """, unsafe_allow_html=True)
 
-    # SHAP解释 - 关键修改部分
+    # SHAP解释
     st.subheader("预测解释")
     with st.spinner("生成SHAP解释..."):
-        # 重新配置matplotlib确保设置生效
-        plt.rcParams.update({
-            'font.sans-serif': ['SimHei'],
-            'axes.unicode_minus': False
-        })
-        
-        # 创建新的figure对象
-        fig = plt.figure(figsize=(10, 4), dpi=150)
-        
-        # 计算SHAP值
-        shap_values = explainer.shap_values(input_df)
-        
-        # 生成force plot
-        force_plot = shap.force_plot(
-            base_value=explainer.expected_value,
-            shap_values=shap_values[0],
-            features=input_df.iloc[0, :],
-            feature_names=feature_names,
-            matplotlib=True,
-            show=False
-        )
-        
-        # 显式传递figure对象
-        st.pyplot(fig)
-        plt.close(fig)
+        try:
+            fig = render_shap_plot(input_df)
+            st.pyplot(fig)
+        except Exception as e:
+            st.error("SHAP解释生成失败，请检查输入参数")
+            st.error(str(e))
 
     # 指标说明
     st.markdown("---")
