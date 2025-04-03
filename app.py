@@ -92,25 +92,31 @@ if predict_button:
     """, unsafe_allow_html=True)
 
     # SHAP解释
-    st.subheader("预测解释")
-    with st.spinner("生成SHAP解释..."):
-        # 计算SHAP值
-        shap_values = explainer.shap_values(input_df)
-
-        # 创建新的图形对象
-        plt.figure()
-        force_plot = shap.force_plot(
-            base_value=explainer.expected_value,
-            shap_values=shap_values[0],
-            features=input_df.iloc[0, :],
-            feature_names=feature_names,  # 关键修改：显式传递中文特征名
-            matplotlib=True,
-            show=False
-        )
-
-        # 显示图形并明确传递对象
-        st.pyplot(force_plot)
-        plt.close()
+st.subheader("预测解释")
+with st.spinner("生成SHAP解释..."):
+    # 创建新的图形对象并显式配置字体
+    plt.rcParams.update({
+        'font.sans-serif': 'WenQuanYi Zen Hei',  # 使用Linux环境通用中文字体
+        'axes.unicode_minus': False
+    })
+    
+    # 计算SHAP值
+    shap_values = explainer.shap_values(input_df)
+    
+    # 生成force plot
+    fig = plt.figure(figsize=(10, 4), dpi=150)
+    force_plot = shap.force_plot(
+        base_value=explainer.expected_value,
+        shap_values=shap_values[0],
+        features=input_df.iloc[0, :],
+        feature_names=feature_names,
+        matplotlib=True,
+        show=False
+    )
+    
+    # 显式传递figure对象
+    st.pyplot(fig)
+    plt.close(fig)  # 必须关闭图形避免内存泄漏
 
     # 指标说明
     st.markdown("---")
