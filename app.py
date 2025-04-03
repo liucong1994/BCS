@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import streamlit.components.v1 as components
 import os
 
-# 配置Matplotlib中文字体（必须放在其他matplotlib操作之前）
+# 配置Matplotlib中文字体
 plt.rcParams['font.sans-serif'] = ['SimHei']  # Windows系统黑体
 plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
 
@@ -18,7 +18,6 @@ st.set_page_config(
     page_icon=":hospital:",
     layout="wide"
 )
-
 
 @st.cache_resource
 def load_assets():
@@ -31,14 +30,12 @@ def load_assets():
     explainer = shap.TreeExplainer(model)
     return model, explainer, feature_names
 
-
 model, explainer, feature_names = load_assets()
 
-
-def st_shap(plot, height=500):
+def st_shap(plot, height=None):
+    """在Streamlit中显示SHAP plot的HTML组件"""
     shap_html = f"<head>{shap.getjs()}</head><body>{plot.html()}</body>"
     components.html(shap_html, height=height)
-
 
 st.title("布加综合征上消化道出血风险预测")
 st.markdown("""**使用说明**:  
@@ -96,21 +93,16 @@ if predict_button:
     with st.spinner("生成SHAP解释..."):
         # 计算SHAP值
         shap_values = explainer.shap_values(input_df)
-
-        # 创建新的图形对象
-        plt.figure()
+        
+        # 生成HTML格式的force plot
         force_plot = shap.force_plot(
             base_value=explainer.expected_value,
             shap_values=shap_values[0],
             features=input_df.iloc[0, :],
-            feature_names=feature_names,  # 关键修改：显式传递中文特征名
-            matplotlib=True,
+            feature_names=feature_names,
             show=False
         )
-
-        # 显示图形并明确传递对象
-        st.pyplot(force_plot)
-        plt.close()
+        st_shap(force_plot, height=300)
 
     # 指标说明
     st.markdown("---")
