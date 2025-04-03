@@ -2,9 +2,15 @@
 import streamlit as st
 import joblib
 import shap
+import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 import streamlit.components.v1 as components
 import os
+
+# 配置Matplotlib中文字体（必须放在其他matplotlib操作之前）
+plt.rcParams['font.sans-serif'] = ['SimHei']  # Windows系统黑体
+plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
 
 # 配置页面
 st.set_page_config(
@@ -12,6 +18,7 @@ st.set_page_config(
     page_icon=":hospital:",
     layout="wide"
 )
+
 
 @st.cache_resource
 def load_assets():
@@ -24,72 +31,19 @@ def load_assets():
     explainer = shap.TreeExplainer(model)
     return model, explainer, feature_names
 
-# -*- coding: utf-8 -*-
-import streamlit as st
-import joblib
-import shap
-import pandas as pd
-import streamlit.components.v1 as components
-import os
-
-# 配置页面
-st.set_page_config(
-    page_title="BCS出血风险预测工具",
-    page_icon=":hospital:",
-    layout="wide"
-)
-
-@st.cache_resource
-def load_assets():
-    base_path = os.path.dirname(__file__)
-    model_path = os.path.join(base_path, "assets", "bcs_hemorrhage_xgb_model.pkl")
-    feature_names_path = os.path.join(base_path, "assets", "feature_names2.pkl")
-
-    model = joblib.load(model_path)
-    feature_names = joblib.load(feature_names_path)
-    explainer = shap.TreeExplainer(model)
-    return model, explainer, feature_names
 
 model, explainer, feature_names = load_assets()
 
-def st_shap(shap_values, features, feature_names):
-    """修复后的SHAP可视化组件"""
-    shap_html = f"""
-    <html>
-    <head>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
-    {shap.getjs()}
-    </head>
-    <body>
-    <div id="shap-plot"></div>
-    <script type="text/javascript">
-    document.addEventListener('DOMContentLoaded', function() {{
-        const shap_values = {shap_values.tolist()};
-        const features = {features.tolist()};
-        
-        if (typeof shap !== 'undefined') {{
-            shap.forcePlot(
-                {explainer.expected_value},
-                shap_values,
-                features,
-                {{
-                    featureNames: {feature_names},
-                    mainDivId: 'shap-plot'
-                }}
-            );
-        }} else {{
-            console.error('SHAP library not loaded');
-        }}
-    }});
-    </script>
-    </body>
-    </html>
-    """
-    components.html(shap_html, height=300)
+
+def st_shap(plot, height=500):
+    shap_html = f"<head>{shap.getjs()}</head><body>{plot.html()}</body>"
+    components.html(shap_html, height=height)
+
 
 st.title("布加综合征上消化道出血风险预测")
 st.markdown("""**使用说明**:  
-输入患者的基线指标，点击"预测"按钮获取6个月内出血风险及个体化建议。""")
+输入患者的基线指标，点击"预测"按钮获取6个月内出血风险及个体化建议。  
+模型基于随机森林算法构建，并通过SHAP值解释预测依据。""")
 
 with st.sidebar:
     st.header("患者指标输入")
@@ -108,7 +62,7 @@ with st.sidebar:
 
 if predict_button:
     input_df = pd.DataFrame([input_values], columns=feature_names)
-    
+
     # 预测概率
     prob = model.predict_proba(input_df)[0][1]
     risk_percent = round(prob * 100, 2)
@@ -137,15 +91,48 @@ if predict_button:
     </div>
     """, unsafe_allow_html=True)
 
-    # SHAP解释
-    st.subheader("预测解释")
-    with st.spinner("生成SHAP解释..."):
-        shap_values = explainer.shap_values(input_df)
-        st_shap(
-            shap_values=shap_values[0],
-            features=input_df.values[0],
-            feature_names=feature_names
-        )
+   # SHAP解释
+st.subheader("预测解释")
+with st.spinner("生成SHAP解释..."):
+    # 生成英文特征名列表
+    modified_feature_names = []
+    for name in feature_names:
+        if "血小板/脾脏比值" in name:
+            modified_feature_names.append("PC/SD")
+        elif "门静脉宽度" in name:
+            modified_feature_names.append("PVW")
+        elif "IV型胶原" in name:
+            modified_feature_names.append("IV Collagen")
+        else:
+            modified_feature_names.append(name.split(' ')[0])  # 保留其他指标主名称
+
+    # 计算SHAP值
+    shap_values = explainer.shap_values(input_df)
+
+    # 创建新的图形对象
+    plt.figure()
+    force_plot = shap.force_plot(
+        base_value=explainer.expected_value,
+        shap_values=shap_values[0],
+        features=input_df.iloc[0, :],
+        feature_names=modified_feature_names,  # 使用修改后的特征名
+        matplotlib=True,
+        show=False
+    )
+
+    # 显示图形并明确传递对象
+    st.pyplot(force_plot)
+    plt.close()
+
+    # 指标说明
+    st.markdown("---")
+    st.subheader("指标临床意义")
+    st.markdown("""
+    - **NLR**: 反映全身炎症状态  
+    - **血小板/脾脏比值**: 门静脉高压严重程度指标  
+    - **门静脉宽度**: 门静脉高压严重程度指标  
+    - **IV型胶原**: 肝纤维化标志物  
+    """)
 
 # 页脚
 st.markdown("---")
