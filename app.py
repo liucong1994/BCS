@@ -19,7 +19,6 @@ st.set_page_config(
     layout="wide"
 )
 
-
 @st.cache_resource
 def load_assets():
     base_path = os.path.dirname(__file__)
@@ -31,14 +30,11 @@ def load_assets():
     explainer = shap.TreeExplainer(model)
     return model, explainer, feature_names
 
-
 model, explainer, feature_names = load_assets()
-
 
 def st_shap(plot, height=500):
     shap_html = f"<head>{shap.getjs()}</head><body>{plot.html()}</body>"
     components.html(shap_html, height=height)
-
 
 st.title("布加综合征上消化道出血风险预测")
 st.markdown("""**使用说明**:  
@@ -91,32 +87,34 @@ if predict_button:
     </div>
     """, unsafe_allow_html=True)
 
-    # SHAP解释
-st.subheader("预测解释")
-with st.spinner("生成SHAP解释..."):
-    # 创建新的图形对象并显式配置字体
-    plt.rcParams.update({
-        'font.sans-serif': 'WenQuanYi Zen Hei',  # 使用Linux环境通用中文字体
-        'axes.unicode_minus': False
-    })
-    
-    # 计算SHAP值
-    shap_values = explainer.shap_values(input_df)
-    
-    # 生成force plot
-    fig = plt.figure(figsize=(10, 4), dpi=150)
-    force_plot = shap.force_plot(
-        base_value=explainer.expected_value,
-        shap_values=shap_values[0],
-        features=input_df.iloc[0, :],
-        feature_names=feature_names,
-        matplotlib=True,
-        show=False
-    )
-    
-    # 显式传递figure对象
-    st.pyplot(fig)
-    plt.close(fig)  # 必须关闭图形避免内存泄漏
+    # SHAP解释 - 关键修改部分
+    st.subheader("预测解释")
+    with st.spinner("生成SHAP解释..."):
+        # 重新配置matplotlib确保设置生效
+        plt.rcParams.update({
+            'font.sans-serif': ['SimHei'],
+            'axes.unicode_minus': False
+        })
+        
+        # 创建新的figure对象
+        fig = plt.figure(figsize=(10, 4), dpi=150)
+        
+        # 计算SHAP值
+        shap_values = explainer.shap_values(input_df)
+        
+        # 生成force plot
+        force_plot = shap.force_plot(
+            base_value=explainer.expected_value,
+            shap_values=shap_values[0],
+            features=input_df.iloc[0, :],
+            feature_names=feature_names,
+            matplotlib=True,
+            show=False
+        )
+        
+        # 显式传递figure对象
+        st.pyplot(fig)
+        plt.close(fig)
 
     # 指标说明
     st.markdown("---")
