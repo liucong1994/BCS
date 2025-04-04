@@ -80,7 +80,10 @@ if predict_button:
         risk_level = "低危"
         advice = "每3个月常规随访，维持抗凝治疗"
         color = "#2E86C1"
-
+        
+if predict_button:
+    input_df = pd.DataFrame([input_values], columns=feature_names)
+    
     # 显示预测结果
     st.subheader("预测结果")
     st.markdown(f"""
@@ -91,38 +94,38 @@ if predict_button:
     </div>
     """, unsafe_allow_html=True)
 
-   # SHAP解释
-st.subheader("预测解释")
-with st.spinner("生成SHAP解释..."):
-    # 生成英文特征名列表
-    modified_feature_names = []
-    for name in feature_names:
-        if "血小板计数/脾脏最大径" in name:
-            modified_feature_names.append("PC/SD")
-        elif "门静脉宽度" in name:
-            modified_feature_names.append("PVW")
-        elif "IV型胶原" in name:
-            modified_feature_names.append("IV Collagen")
-        else:
-            modified_feature_names.append(name.split(' ')[0])  # 保留其他指标主名称
+   # SHAP解释部分移动到此处
+    st.subheader("预测解释")
+    with st.spinner("生成SHAP解释..."):
+        # 生成英文特征名列表
+        modified_feature_names = []
+        for name in feature_names:
+            if "血小板计数/脾脏最大径" in name:
+                modified_feature_names.append("PC/SD")
+            elif "门静脉宽度" in name:
+                modified_feature_names.append("PVW")
+            elif "IV型胶原" in name:
+                modified_feature_names.append("IV Collagen")
+            else:
+                modified_feature_names.append(name.split(' ')[0])
 
-    # 计算SHAP值
-    shap_values = explainer.shap_values(input_df)
+        # 计算SHAP值
+        shap_values = explainer.shap_values(input_df)
 
-    # 创建新的图形对象
-    plt.figure()
-    force_plot = shap.force_plot(
-        base_value=explainer.expected_value,
-        shap_values=shap_values[0],
-        features=input_df.iloc[0, :],
-        feature_names=modified_feature_names,  # 使用修改后的特征名
-        matplotlib=True,
-        show=False
-    )
+        # 创建新的图形对象
+        plt.figure()
+        force_plot = shap.force_plot(
+            base_value=explainer.expected_value,
+            shap_values=shap_values[0],
+            features=input_df.iloc[0, :],
+            feature_names=modified_feature_names,
+            matplotlib=True,
+            show=False
+        )
 
-    # 显示图形并明确传递对象
-    st.pyplot(force_plot)
-    plt.close()
+        # 显示图形并明确传递对象
+        st.pyplot(force_plot)
+        plt.close()
 
     # 指标说明
     st.markdown("---")
@@ -134,6 +137,6 @@ with st.spinner("生成SHAP解释..."):
     - **IV型胶原**: 肝纤维化标志物  
     """)
 
-# 页脚
+# 页脚（保持在外部）
 st.markdown("---")
 st.caption("© 2024 布加综合征研究组。预测工具仅限临床医生使用，不作为诊疗唯一依据。")
