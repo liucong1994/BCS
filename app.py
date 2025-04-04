@@ -54,9 +54,9 @@ with st.sidebar:
         elif "血小板" in feature:
             val = st.number_input(f"{feature} (PC/SD) (×10⁹/L/cm)", min_value=0.1, value=18.0, step=0.1)
         elif "门静脉" in feature:
-            val = st.number_input(f"{feature} (mm)", min_value=5.0, value=14.0, step=0.1)
+            val = st.number_input(f"{feature} (PVW) (mm)", min_value=5.0, value=14.0, step=0.1)
         elif "IV型胶原" in feature:
-            val = st.number_input(f"{feature} (ng/mL)", min_value=0.0, value=200.0, step=1.0)
+            val = st.number_input(f"{feature} (IV Collagen) (ng/mL)", min_value=0.0, value=200.0, step=1.0)
         input_values.append(val)
     predict_button = st.button("开始预测")
 
