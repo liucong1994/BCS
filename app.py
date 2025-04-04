@@ -51,7 +51,7 @@ with st.sidebar:
     for feature in feature_names:
         if "NLR" in feature:
             val = st.number_input(f"{feature}", min_value=0.1, value=3.5, step=0.1)
-        elif "血小板" in feature:
+        elif "血小板(PC/SD)" in feature:
             val = st.number_input(f"{feature} (×10⁹/L/cm)", min_value=0.1, value=18.0, step=0.1)
         elif "门静脉" in feature:
             val = st.number_input(f"{feature} (mm)", min_value=5.0, value=14.0, step=0.1)
