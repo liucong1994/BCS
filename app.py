@@ -97,7 +97,7 @@ with st.spinner("生成SHAP解释..."):
     # 生成英文特征名列表
     modified_feature_names = []
     for name in feature_names:
-        if "血小板/脾脏比值" in name:
+        if "血小板计数/脾脏最大径" in name:
             modified_feature_names.append("PC/SD")
         elif "门静脉宽度" in name:
             modified_feature_names.append("PVW")
